@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AuthButtons from "@/components/AuthButtons";
 
 export default function Navbar() {
   return (
@@ -15,20 +16,12 @@ export default function Navbar() {
         {/* Menu links (hidden on small phones) */}
         <div className="hidden gap-8 text-gray-600 md:flex">
           <Link href="/scholars" className="hover:text-emerald-700">Scholars</Link>
-          <Link href="#how-it-works" className="hover:text-emerald-700">How It Works</Link>
+          <Link href="/#how-it-works" className="hover:text-emerald-700">How It Works</Link>
           <Link href="/about" className="hover:text-emerald-700">About</Link>
         </div>
 
-        {/* Login / Sign up */}
-        <div className="flex items-center gap-3">
-          <Link href="/login" className="text-gray-700 hover:text-emerald-700">Login</Link>
-          <Link
-            href="/signup"
-            className="rounded-full bg-emerald-700 px-5 py-2 font-semibold text-white hover:bg-emerald-800"
-          >
-            Sign Up
-          </Link>
-        </div>
+        {/* Login/Sign Up or User name/Logout */}
+        <AuthButtons />
       </nav>
     </header>
   );
