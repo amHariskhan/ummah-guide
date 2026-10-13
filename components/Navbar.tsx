@@ -1,28 +1,77 @@
+import { connection } from "next/server";
 import Link from "next/link";
-import AuthButtons from "@/components/AuthButtons";
+import { createClient } from "@/lib/supabase/server";
+import LogoutButton from "./LogoutButton";
 
-export default function Navbar() {
+export default async function Navbar() {
+    await connection(); // tells Next.js: build this per visitor, don't pre-build it
+  const supabase = await createClient();
+
+  // Who is logged in? (user is null if nobody)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // If logged in, get their name and role from profiles
+  let fullName = "";
+  let role = "";
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name, role")
+      .eq("id", user.id)
+      .single();
+
+    fullName = profile?.full_name ?? "";
+    role = profile?.role ?? "";
+  }
+
   return (
-    <header className="sticky top-0 z-50 border-b border-emerald-100 bg-white/90 backdrop-blur">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+    <nav className="bg-white border-b border-emerald-100">
+      <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-700 text-lg font-bold text-white">
+          <span className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold">
             U
           </span>
           <span className="text-xl font-bold text-emerald-800">Ummah Guide</span>
         </Link>
 
-        {/* Menu links (hidden on small phones) */}
-        <div className="hidden gap-8 text-gray-600 md:flex">
+        {/* Middle links */}
+        <div className="hidden md:flex items-center gap-6 text-gray-700">
           <Link href="/scholars" className="hover:text-emerald-700">Scholars</Link>
           <Link href="/#how-it-works" className="hover:text-emerald-700">How It Works</Link>
           <Link href="/about" className="hover:text-emerald-700">About</Link>
+          {role === "admin" && (
+            <Link href="/admin" className="text-emerald-700 font-semibold">Admin</Link>
+          )}
         </div>
 
-        {/* Login/Sign Up or User name/Logout */}
-        <AuthButtons />
-      </nav>
-    </header>
+        {/* Right side: depends on login status */}
+        <div className="flex items-center gap-3">
+          {user ? (
+            <>
+              <span className="hidden sm:block text-gray-700">
+                Assalamu Alaikum, <span className="font-semibold">{fullName}</span>
+              </span>
+              <LogoutButton />
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="text-gray-700 font-medium hover:text-emerald-700">
+                Login
+              </Link>
+              <Link
+                href="/signup"
+                className="rounded-full bg-emerald-600 px-4 py-2 text-white font-medium hover:bg-emerald-700"
+              >
+                Sign Up
+              </Link>
+            </>
+          )}
+        </div>
+      </div>
+    </nav>
   );
 }

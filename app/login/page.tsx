@@ -1,26 +1,24 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-const inputClass =
-  "mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100";
-
 export default function LoginPage() {
   const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const supabase = createClient(); // created only when the button is clicked
     setError("");
     setLoading(true);
 
-    const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     setLoading(false);
@@ -30,58 +28,53 @@ export default function LoginPage() {
       return;
     }
 
-    setPassword("");
     router.push("/");
     router.refresh();
   }
 
   return (
-    <main className="flex min-h-[80vh] items-center justify-center bg-emerald-50 px-6 py-16">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm">
-        <h1 className="text-center text-2xl font-bold text-gray-900">Welcome back</h1>
-        <p className="mt-2 text-center text-gray-600">Login to your Ummah Guide account</p>
+    <main className="min-h-screen bg-emerald-50 flex items-center justify-center px-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
+        <h1 className="text-3xl font-bold text-emerald-800 text-center">Welcome back</h1>
+        <p className="text-gray-500 text-center mt-2">Login to your Ummah Guide account</p>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+        <form onSubmit={handleLogin} className="mt-8 space-y-4">
           <div>
-            <label htmlFor="email" className="text-sm font-medium text-gray-700">Email</label>
+            <label className="block text-sm font-medium text-gray-700">Email</label>
             <input
-              id="email"
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className={inputClass}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="text-sm font-medium text-gray-700">Password</label>
+            <label className="block text-sm font-medium text-gray-700">Password</label>
             <input
-              id="password"
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className={inputClass}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
 
-          {error && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>
-          )}
+          {error && <p className="text-red-600 text-sm">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-full bg-emerald-700 py-3 font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+            className="w-full rounded-lg bg-emerald-600 py-3 text-white font-semibold hover:bg-emerald-700 disabled:opacity-50"
           >
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-gray-600">
+        <p className="text-center text-sm text-gray-600 mt-6">
           Don&apos;t have an account?{" "}
-          <Link href="/signup" className="font-semibold text-emerald-700 hover:underline">
+          <Link href="/signup" className="text-emerald-700 font-semibold">
             Sign Up
           </Link>
         </p>

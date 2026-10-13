@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
   const router = useRouter();
-  const supabase = createClient();
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -17,7 +16,8 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
 
   async function handleSignup(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault(); // stop the page from reloading
+    e.preventDefault();
+    const supabase = createClient(); // created only when the button is clicked
     setError("");
     setLoading(true);
 
@@ -25,7 +25,6 @@ export default function SignupPage() {
       email,
       password,
       options: {
-        // This data goes to your trigger, which creates the profile
         data: { full_name: fullName, role },
       },
     });
@@ -44,12 +43,8 @@ export default function SignupPage() {
   return (
     <main className="min-h-screen bg-emerald-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
-        <h1 className="text-3xl font-bold text-emerald-800 text-center">
-          Create your account
-        </h1>
-        <p className="text-gray-500 text-center mt-2">
-          Join Ummah Guide to ask verified scholars
-        </p>
+        <h1 className="text-3xl font-bold text-emerald-800 text-center">Create your account</h1>
+        <p className="text-gray-500 text-center mt-2">Join Ummah Guide to ask verified scholars</p>
 
         <form onSubmit={handleSignup} className="mt-8 space-y-4">
           <div>
@@ -86,7 +81,6 @@ export default function SignupPage() {
             />
           </div>
 
-          {/* Role choice */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">I am joining as</label>
             <div className="grid grid-cols-2 gap-3">

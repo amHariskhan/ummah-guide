@@ -117,3 +117,7 @@ create policy "Ask a question"
       where s.id = scholar_id and s.status = 'approved'
     )
   );
+  create policy "Users can read own profile"
+on profiles
+for select
+using (auth.uid() = id);
