@@ -36,7 +36,7 @@ export default function SignupPage() {
       return;
     }
 
-    router.push("/");
+    router.push(role === "scholar" ? "/scholars/profile" : "/");
     router.refresh();
   }
 

@@ -121,3 +121,30 @@ create policy "Ask a question"
 on profiles
 for select
 using (auth.uid() = id);
+-- Remove old versions first (safe even if they don't exist)
+drop policy if exists "Scholars can view own scholar profile" on scholar_profiles;
+drop policy if exists "Scholars can create own scholar profile" on scholar_profiles;
+drop policy if exists "Scholars can update own scholar profile" on scholar_profiles;
+
+-- 1. Scholar can see their own profile (even when pending)
+create policy "Scholars can view own scholar profile"
+on scholar_profiles for select
+using (auth.uid() = id);
+
+-- 2. Scholar can create their own profile (only as pending)
+create policy "Scholars can create own scholar profile"
+on scholar_profiles for insert
+with check (
+  auth.uid() = id
+  and status = 'pending'
+  and exists (
+    select 1 from profiles
+    where profiles.id = auth.uid() and profiles.role = 'scholar'
+  )
+);
+
+-- 3. Scholar can edit their own profile (goes back to pending)
+create policy "Scholars can update own scholar profile"
+on scholar_profiles for update
+using (auth.uid() = id)
+with check (auth.uid() = id and status = 'pending');

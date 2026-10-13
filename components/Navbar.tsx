@@ -1,10 +1,11 @@
-import { connection } from "next/server";
 import Link from "next/link";
+import { connection } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import LogoutButton from "./LogoutButton";
 
 export default async function Navbar() {
-    await connection(); // tells Next.js: build this per visitor, don't pre-build it
+  await connection(); // build this per visitor, don't pre-build it
+
   const supabase = await createClient();
 
   // Who is logged in? (user is null if nobody)
@@ -43,8 +44,13 @@ export default async function Navbar() {
           <Link href="/scholars" className="hover:text-emerald-700">Scholars</Link>
           <Link href="/#how-it-works" className="hover:text-emerald-700">How It Works</Link>
           <Link href="/about" className="hover:text-emerald-700">About</Link>
+
           {role === "admin" && (
             <Link href="/admin" className="text-emerald-700 font-semibold">Admin</Link>
+          )}
+
+          {role === "scholar" && (
+            <Link href="/scholars/profile" className="text-emerald-700 font-semibold">My Profile</Link>
           )}
         </div>
 
