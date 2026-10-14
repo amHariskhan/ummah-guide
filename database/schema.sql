@@ -148,3 +148,14 @@ create policy "Scholars can update own scholar profile"
 on scholar_profiles for update
 using (auth.uid() = id)
 with check (auth.uid() = id and status = 'pending');
+drop policy if exists "Public can view approved scholar names" on profiles;
+
+create policy "Public can view approved scholar names"
+on profiles for select
+using (
+  exists (
+    select 1 from scholar_profiles sp
+    where sp.id = profiles.id
+      and sp.status = 'approved'
+  )
+);
