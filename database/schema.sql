@@ -159,3 +159,171 @@ using (
       and sp.status = 'approved'
   )
 );
+-- ===== 1. Extra columns on questions =====
+alter table questions add column if not exists created_at timestamptz not null default now();
+alter table questions add column if not exists last_message_at timestamptz not null default now();
+alter table questions add column if not exists answered_at timestamptz;
+
+-- ===== 2. Messages table =====
+create table if not exists messages (
+  id uuid primary key default gen_random_uuid(),
+  question_id bigint not null references questions(id) on delete cascade,
+  sender_id uuid not null references profiles(id) on delete cascade,
+  body text not null check (char_length(trim(body)) between 1 and 3000),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists messages_question_created_idx on messages (question_id, created_at);
+create index if not exists questions_user_idx on questions (user_id, last_message_at desc);
+create index if not exists questions_scholar_idx on questions (scholar_id, last_message_at desc);
+
+alter table messages enable row level security;
+
+-- ===== 3. Helper: is the current user part of this conversation? =====
+create or replace function public.is_question_participant(qid bigint)
+returns boolean
+language sql
+security definer
+stable
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.questions q
+    where q.id = qid
+      and (q.user_id = auth.uid() or q.scholar_id = auth.uid())
+  );
+$$;
+
+-- ===== 4. Message rules =====
+drop policy if exists "Participants and admin can read messages" on messages;
+create policy "Participants and admin can read messages"
+on messages for select
+using (public.is_question_participant(question_id) or public.is_admin());
+
+drop policy if exists "Participants can send messages" on messages;
+create policy "Participants can send messages"
+on messages for insert
+with check (
+  sender_id = auth.uid()
+  and public.is_question_participant(question_id)
+);
+
+-- ===== 5. Automations (triggers) =====
+create or replace function public.handle_new_question()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.messages (question_id, sender_id, body, created_at)
+  values (new.id, new.user_id, new.body, new.created_at);
+  return new;
+end;
+$$;
+
+drop trigger if exists on_question_created on questions;
+create trigger on_question_created
+after insert on questions
+for each row execute function public.handle_new_question();
+
+create or replace function public.handle_new_message()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.questions
+  set last_message_at = new.created_at
+  where id = new.question_id;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_message_created on messages;
+create trigger on_message_created
+after insert on messages
+for each row execute function public.handle_new_message();
+
+-- Existing questions get their first message too
+insert into messages (question_id, sender_id, body, created_at)
+select q.id, q.user_id, q.body, q.created_at
+from questions q
+where not exists (select 1 from messages m where m.question_id = q.id);
+
+-- ===== 6. Scholar can mark a conversation as answered =====
+drop policy if exists "Scholars can answer their questions" on questions;
+drop policy if exists "Scholars can update status of their questions" on questions;
+create policy "Scholars can update status of their questions"
+on questions for update
+using (auth.uid() = scholar_id)
+with check (auth.uid() = scholar_id and status in ('pending', 'answered'));
+
+revoke update on questions from authenticated;
+grant update (status, answered_at) on questions to authenticated;
+
+-- ===== 7. Turn on Realtime (live messages) =====
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'messages'
+  ) then
+    alter publication supabase_realtime add table public.messages;
+  end if;
+end $$;
+-- ===== 1. Chat partners can see each other's names =====
+create or replace function public.shares_conversation_with(other uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.questions q
+    where (q.user_id = auth.uid() and q.scholar_id = other)
+       or (q.scholar_id = auth.uid() and q.user_id = other)
+  );
+$$;
+
+drop policy if exists "Chat partners can view each other" on profiles;
+create policy "Chat partners can view each other"
+on profiles for select
+using (public.shares_conversation_with(id));
+
+-- ===== 2. Last message preview on each conversation =====
+alter table questions add column if not exists last_message_preview text;
+alter table questions add column if not exists last_sender_id uuid;
+
+-- Update the trigger so every new message also saves the preview
+create or replace function public.handle_new_message()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.questions
+  set last_message_at = new.created_at,
+      last_message_preview = left(new.body, 100),
+      last_sender_id = new.sender_id
+  where id = new.question_id;
+  return new;
+end;
+$$;
+
+-- Fill the preview for conversations that already exist
+update questions q
+set last_message_preview = left(m.body, 100),
+    last_sender_id = m.sender_id,
+    last_message_at = m.created_at
+from (
+  select distinct on (question_id) question_id, body, sender_id, created_at
+  from messages
+  order by question_id, created_at desc
+) m
+where m.question_id = q.id;

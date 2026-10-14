@@ -4,18 +4,17 @@ import { createClient } from "@/lib/supabase/server";
 import LogoutButton from "./LogoutButton";
 
 export default async function Navbar() {
-  await connection(); // build this per visitor, don't pre-build it
+  await connection();
 
   const supabase = await createClient();
 
-  // Who is logged in? (user is null if nobody)
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // If logged in, get their name and role from profiles
   let fullName = "";
   let role = "";
+  let totalUnread = 0;
 
   if (user) {
     const { data: profile } = await supabase
@@ -26,6 +25,15 @@ export default async function Navbar() {
 
     fullName = profile?.full_name ?? "";
     role = profile?.role ?? "";
+
+    // Total unread messages (only users and scholars chat)
+    if (role === "user" || role === "scholar") {
+      const { data: unreadRows } = await supabase.rpc("my_unread_counts");
+      totalUnread = (unreadRows ?? []).reduce(
+        (sum: number, r: { unread: number }) => sum + r.unread,
+        0
+      );
+    }
   }
 
   return (
@@ -52,9 +60,20 @@ export default async function Navbar() {
           {role === "scholar" && (
             <Link href="/scholars/profile" className="text-emerald-700 font-semibold">My Profile</Link>
           )}
+
+          {(role === "user" || role === "scholar") && (
+            <Link href="/chats" className="flex items-center gap-2 text-emerald-700 font-semibold">
+              Messages
+              {totalUnread > 0 && (
+                <span className="min-w-5 h-5 px-1.5 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">
+                  {totalUnread > 99 ? "99+" : totalUnread}
+                </span>
+              )}
+            </Link>
+          )}
         </div>
 
-        {/* Right side: depends on login status */}
+        {/* Right side */}
         <div className="flex items-center gap-3">
           {user ? (
             <>

@@ -1,23 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function AskQuestionForm({
   userId,
   scholarId,
-  scholarName,
 }: {
   userId: string;
   scholarId: string;
   scholarName: string;
 }) {
+  const router = useRouter();
+
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -25,41 +25,27 @@ export default function AskQuestionForm({
     setError("");
     setLoading(true);
 
-    const { error } = await supabase.from("questions").insert({
-      user_id: userId,
-      scholar_id: scholarId,
-      title,
-      body,
-      status: "pending",
-    });
-
-    setLoading(false);
+    // Save the question and get back its new id
+    const { data, error } = await supabase
+      .from("questions")
+      .insert({
+        user_id: userId,
+        scholar_id: scholarId,
+        title,
+        body,
+        status: "pending",
+      })
+      .select("id")
+      .single();
 
     if (error) {
+      setLoading(false);
       setError(error.message);
       return;
     }
 
-    setSent(true);
-  }
-
-  // After sending, show a success message instead of the form
-  if (sent) {
-    return (
-      <div className="text-center py-6">
-        <div className="text-5xl">✅</div>
-        <h2 className="text-2xl font-bold text-emerald-800 mt-4">Question sent!</h2>
-        <p className="text-gray-600 mt-2">
-          {scholarName} will review your question and reply, In sha Allah.
-        </p>
-        <Link
-          href="/scholars"
-          className="inline-block mt-6 rounded-lg bg-emerald-600 px-6 py-3 text-white font-semibold hover:bg-emerald-700"
-        >
-          Back to scholars
-        </Link>
-      </div>
-    );
+    // Go straight into the new conversation
+    router.push(`/chats/${data.id}`);
   }
 
   return (
