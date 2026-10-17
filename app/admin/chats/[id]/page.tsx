@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
+import { ArrowLeft, Lock, User, ShieldCheck, Calendar, MessageSquare } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import AdminHeader from "@/components/admin/AdminHeader";
 
-// Full date + time in Pakistan time, e.g. "14 Oct 2026, 3:45 PM"
+// Full date + time in Pakistan time, e.g. "14 Oct 2026, 3:45 pm"
 function fullTime(date: string) {
   return new Date(date).toLocaleString("en-GB", {
     timeZone: "Asia/Karachi",
@@ -68,60 +70,110 @@ export default async function AdminChatDetailPage({
 
   const askerName = names.get(question.user_id) ?? "Unknown";
   const scholarName = names.get(question.scholar_id) ?? "Unknown";
+  const messageCount = messages?.length ?? 0;
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10">
-      <Link href="/admin/chats" className="text-sm text-emerald-700 hover:underline">
-        ← All Conversations
-      </Link>
-
-      {/* Header */}
-      <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <h1 className="text-xl font-bold text-emerald-800">{question.title}</h1>
-          <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
-              question.status === "answered"
-                ? "bg-emerald-100 text-emerald-700"
-                : "bg-amber-100 text-amber-700"
-            }`}
+    <>
+      <AdminHeader
+        title={question.title}
+        subtitle={`${askerName} → ${scholarName}`}
+        actions={
+          <Link
+            href="/admin/chats"
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
           >
-            {question.status}
-          </span>
-        </div>
-        <p className="mt-2 text-sm text-gray-600">
-          <span className="font-medium">User:</span> {askerName} &nbsp;·&nbsp;
-          <span className="font-medium">Scholar:</span> {scholarName}
-        </p>
-        <p className="mt-1 text-xs text-gray-500">Started {fullTime(question.created_at)}</p>
-        <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          Read-only view for moderation. Admin cannot send messages here.
-        </p>
-      </div>
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Link>
+        }
+      />
 
-      {/* Messages */}
-      <div className="mt-6 space-y-3">
-        {(messages ?? []).map((m) => {
-          const isScholar = m.sender_id === question.scholar_id;
-          return (
-            <div key={m.id} className={`flex ${isScholar ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-2 shadow-sm ${
-                  isScholar ? "bg-emerald-600 text-white" : "bg-white text-gray-900 border border-gray-200"
-                }`}
-              >
-                <p className={`text-xs font-semibold ${isScholar ? "text-emerald-100" : "text-emerald-700"}`}>
-                  {names.get(m.sender_id) ?? "Unknown"}
-                </p>
-                <p className="whitespace-pre-line wrap-break-word">{m.body}</p>
-                <p className={`mt-1 text-right text-[11px] ${isScholar ? "text-emerald-100" : "text-gray-400"}`}>
-                  {fullTime(m.created_at)}
-                </p>
+      <div className="grid gap-6 p-6 md:p-8 lg:grid-cols-3">
+        {/* LEFT: messages */}
+        <section className="rounded-xl border border-gray-200 bg-white shadow-sm lg:col-span-2">
+          <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-3 text-xs text-amber-700">
+            <Lock className="h-4 w-4" />
+            Read-only view for moderation. Admin cannot send messages here.
+          </div>
+
+          <div className="space-y-3 bg-slate-50/60 p-5">
+            {messageCount === 0 && (
+              <p className="py-10 text-center text-sm text-gray-500">No messages.</p>
+            )}
+
+            {messages?.map((m) => {
+              const isScholar = m.sender_id === question.scholar_id;
+              return (
+                <div key={m.id} className={`flex ${isScholar ? "justify-end" : "justify-start"}`}>
+                  <div
+                    className={`max-w-[80%] rounded-2xl px-4 py-2 shadow-sm ${
+                      isScholar
+                        ? "rounded-br-sm bg-emerald-600 text-white"
+                        : "rounded-bl-sm border border-gray-200 bg-white text-gray-900"
+                    }`}
+                  >
+                    <p className={`text-xs font-semibold ${isScholar ? "text-emerald-100" : "text-emerald-700"}`}>
+                      {names.get(m.sender_id) ?? "Unknown"}
+                    </p>
+                    <p className="whitespace-pre-line wrap-break-word text-sm">{m.body}</p>
+                    <p className={`mt-1 text-right text-[11px] ${isScholar ? "text-emerald-100" : "text-gray-400"}`}>
+                      {fullTime(m.created_at)}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* RIGHT: info panel */}
+        <aside className="h-fit rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Details</h2>
+
+          <dl className="mt-4 space-y-4 text-sm">
+            <div className="flex items-start gap-3">
+              <User className="mt-0.5 h-4 w-4 text-gray-400" />
+              <div>
+                <dt className="text-gray-500">User</dt>
+                <dd className="font-medium text-gray-900">{askerName}</dd>
               </div>
             </div>
-          );
-        })}
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 h-4 w-4 text-gray-400" />
+              <div>
+                <dt className="text-gray-500">Scholar</dt>
+                <dd className="font-medium text-emerald-700">{scholarName}</dd>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Calendar className="mt-0.5 h-4 w-4 text-gray-400" />
+              <div>
+                <dt className="text-gray-500">Started</dt>
+                <dd className="font-medium text-gray-900">{fullTime(question.created_at)}</dd>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <MessageSquare className="mt-0.5 h-4 w-4 text-gray-400" />
+              <div>
+                <dt className="text-gray-500">Messages</dt>
+                <dd className="font-medium text-gray-900">{messageCount}</dd>
+              </div>
+            </div>
+          </dl>
+
+          <div className="mt-5 border-t border-gray-100 pt-4">
+            <span
+              className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                question.status === "answered"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-amber-100 text-amber-700"
+              }`}
+            >
+              {question.status}
+            </span>
+          </div>
+        </aside>
       </div>
-    </main>
+    </>
   );
 }

@@ -327,3 +327,49 @@ from (
   order by question_id, created_at desc
 ) m
 where m.question_id = q.id;
+-- 1. Blocking columns (we'll use them in the next steps)
+alter table public.profiles
+  add column if not exists is_blocked boolean not null default false,
+  add column if not exists blocked_at timestamptz;
+
+-- 2. SAFETY: users may only update their own NAME (never role or is_blocked)
+revoke update on public.profiles from authenticated, anon;
+grant update (full_name) on public.profiles to authenticated;
+
+-- 3. Admin-only function: list all users with their emails
+create or replace function public.admin_list_users()
+returns table (
+  id uuid,
+  email text,
+  full_name text,
+  role text,
+  is_blocked boolean,
+  created_at timestamptz,
+  last_sign_in_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Not allowed';
+  end if;
+
+  return query
+    select p.id,
+           u.email::text,
+           p.full_name::text,
+           p.role::text,
+           p.is_blocked,
+           u.created_at,
+           u.last_sign_in_at
+    from public.profiles p
+    join auth.users u on u.id = p.id
+    order by u.created_at desc;
+end;
+$$;
+
+-- 4. Only logged-in users can call it (and inside, only admins pass)
+revoke execute on function public.admin_list_users() from public, anon;
+grant execute on function public.admin_list_users() to authenticated;
