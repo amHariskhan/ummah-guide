@@ -373,3 +373,63 @@ $$;
 -- 4. Only logged-in users can call it (and inside, only admins pass)
 revoke execute on function public.admin_list_users() from public, anon;
 grant execute on function public.admin_list_users() to authenticated;
+-- 1. Helper: is the CURRENT user blocked?
+create or replace function public.is_blocked()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select coalesce(
+    (select is_blocked from public.profiles where id = auth.uid()),
+    false
+  );
+$$;
+
+-- 2. Admin-only: block or unblock someone
+create or replace function public.admin_set_blocked(target uuid, blocked boolean)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Not allowed';
+  end if;
+
+  if target = auth.uid() then
+    raise exception 'You cannot block yourself';
+  end if;
+
+  if exists (select 1 from public.profiles where id = target and role = 'admin') then
+    raise exception 'Admins cannot be blocked';
+  end if;
+
+  update public.profiles
+  set is_blocked = blocked,
+      blocked_at = case when blocked then now() else null end
+  where id = target;
+end;
+$$;
+
+revoke execute on function public.admin_set_blocked(uuid, boolean) from public, anon;
+grant execute on function public.admin_set_blocked(uuid, boolean) to authenticated;
+
+-- 3. RESTRICTIVE policies: blocked users cannot ask or send
+drop policy if exists "Blocked users cannot ask" on public.questions;
+create policy "Blocked users cannot ask"
+  on public.questions
+  as restrictive
+  for insert
+  to authenticated
+  with check (not public.is_blocked());
+
+drop policy if exists "Blocked users cannot send messages" on public.messages;
+create policy "Blocked users cannot send messages"
+  on public.messages
+  as restrictive
+  for insert
+  to authenticated
+  with check (not public.is_blocked());

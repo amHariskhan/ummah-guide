@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import { Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import AdminHeader from "@/components/admin/AdminHeader";
+import BlockUserButton from "@/components/admin/BlockUserButton";
 
 const ROLES = ["all", "user", "scholar", "admin"] as const;
 type RoleTab = (typeof ROLES)[number];
@@ -75,6 +76,7 @@ export default async function AdminUsersPage({
     scholar: allUsers.filter((u) => u.role === "scholar").length,
     admin: allUsers.filter((u) => u.role === "admin").length,
   };
+  const blockedCount = allUsers.filter((u) => u.is_blocked).length;
 
   // 5. Apply role filter + search
   const search = q.toLowerCase();
@@ -91,7 +93,7 @@ export default async function AdminUsersPage({
     <>
       <AdminHeader
         title="Users"
-        subtitle={`${counts.all} registered account${counts.all === 1 ? "" : "s"}`}
+        subtitle={`${counts.all} registered account${counts.all === 1 ? "" : "s"} · ${blockedCount} blocked`}
       />
 
       <div className="space-y-4 p-6 md:p-8">
@@ -140,10 +142,11 @@ export default async function AdminUsersPage({
         {/* Table */}
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="hidden grid-cols-12 gap-4 border-b border-gray-200 bg-gray-50 px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 md:grid">
-            <div className="col-span-5">User</div>
+            <div className="col-span-4">User</div>
             <div className="col-span-2">Role</div>
             <div className="col-span-2">Status</div>
-            <div className="col-span-3">Joined / Last login</div>
+            <div className="col-span-2">Joined / Last login</div>
+            <div className="col-span-2 text-right">Action</div>
           </div>
 
           {users.length === 0 ? (
@@ -153,11 +156,17 @@ export default async function AdminUsersPage({
               {users.map((u) => (
                 <li
                   key={u.id}
-                  className="grid grid-cols-1 gap-2 px-5 py-4 md:grid-cols-12 md:items-center md:gap-4"
+                  className={`grid grid-cols-1 gap-2 px-5 py-4 md:grid-cols-12 md:items-center md:gap-4 ${
+                    u.is_blocked ? "bg-red-50/40" : ""
+                  }`}
                 >
                   {/* Name + email */}
-                  <div className="flex min-w-0 items-center gap-3 md:col-span-5">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-700">
+                  <div className="flex min-w-0 items-center gap-3 md:col-span-4">
+                    <div
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+                        u.is_blocked ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-700"
+                      }`}
+                    >
                       {(u.full_name ?? "?").charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
@@ -198,9 +207,20 @@ export default async function AdminUsersPage({
                   </div>
 
                   {/* Dates */}
-                  <div className="text-sm text-gray-600 md:col-span-3">
+                  <div className="text-sm text-gray-600 md:col-span-2">
                     <p>{shortDate(u.created_at)}</p>
                     <p className="text-xs text-gray-400">Last login: {shortDate(u.last_sign_in_at)}</p>
+                  </div>
+
+                  {/* Action (no button for admins) */}
+                  <div className="md:col-span-2 md:text-right">
+                    {u.role !== "admin" && (
+                      <BlockUserButton
+                        userId={u.id}
+                        userName={u.full_name ?? "this user"}
+                        isBlocked={u.is_blocked}
+                      />
+                    )}
                   </div>
                 </li>
               ))}
