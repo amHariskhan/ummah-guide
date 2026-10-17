@@ -177,7 +177,7 @@ export default function ChatWindow({
                     : "bg-white text-gray-900 border border-gray-100 rounded-bl-sm"
                 }`}
               >
-                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{m.body}</p>
+                <p className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed">{m.body}</p>
                 <p className={`text-[11px] mt-1 text-right ${mine ? "text-emerald-100" : "text-gray-400"}`}>
                   {formatChatTime(m.created_at)}
                 </p>
