@@ -57,6 +57,11 @@ export default async function ChatPage({
     .maybeSingle();
 
   const otherName = other?.full_name ?? "User";
+   const { data: myProfile } = await supabase
+    .from("profiles")
+    .select("is_blocked")
+    .eq("id", user.id)
+    .single();
     // Opening the chat = I have read it
   await supabase.rpc("mark_conversation_read", { qid: questionId });
 
@@ -101,6 +106,7 @@ export default async function ChatPage({
             initialMessages={messages ?? []}
             isScholar={isScholar}
             status={question.status}
+            isBlocked={myProfile?.is_blocked ?? false}
           />
         </div>
       </div>

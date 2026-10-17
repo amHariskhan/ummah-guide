@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Ban } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatChatTime } from "@/lib/format";
 
@@ -12,18 +13,23 @@ type Message = {
   created_at: string;
 };
 
+const BLOCKED_TEXT =
+  "Your account has been suspended by the admin, so you cannot send messages.";
+
 export default function ChatWindow({
   questionId,
   currentUserId,
   initialMessages,
   isScholar,
   status,
+  isBlocked = false,
 }: {
   questionId: number;
   currentUserId: string;
   initialMessages: Message[];
   isScholar: boolean;
   status: string;
+  isBlocked?: boolean;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -31,6 +37,8 @@ export default function ChatWindow({
   const [sending, setSending] = useState(false);
   const [marking, setMarking] = useState(false);
   const [error, setError] = useState("");
+  // Starts with what the server told us; becomes true if the database refuses a send
+  const [blocked, setBlocked] = useState(isBlocked);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -64,7 +72,7 @@ export default function ChatWindow({
             table: "messages",
             filter: `question_id=eq.${questionId}`,
           },
-                    (payload) => {
+          (payload) => {
             const msg = payload.new as Message;
             addMessage(msg);
 
@@ -84,7 +92,7 @@ export default function ChatWindow({
       cancelled = true;
       if (channel) supabase.removeChannel(channel);
     };
-    }, [questionId, currentUserId]);
+  }, [questionId, currentUserId]);
 
   // ===== Auto-scroll to the newest message =====
   useEffect(() => {
@@ -95,7 +103,7 @@ export default function ChatWindow({
   async function handleSend(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const body = text.trim();
-    if (!body || sending) return;
+    if (!body || sending || blocked) return;
 
     setSending(true);
     setError("");
@@ -110,7 +118,12 @@ export default function ChatWindow({
     setSending(false);
 
     if (error) {
-      setError(error.message);
+      // Database refused because this account is blocked → show the friendly notice
+      if (error.message.includes("Blocked users")) {
+        setBlocked(true);
+        return;
+      }
+      setError("Message could not be sent. Please try again.");
       return;
     }
 
@@ -141,7 +154,7 @@ export default function ChatWindow({
     setMarking(false);
 
     if (error || !data || data.length === 0) {
-      setError(error?.message ?? "Could not update the status.");
+      setError("Could not update the status. Please try again.");
       return;
     }
 
@@ -150,8 +163,8 @@ export default function ChatWindow({
 
   return (
     <div className="flex flex-col">
-      {/* Scholar action bar */}
-      {isScholar && status !== "answered" && (
+      {/* Scholar action bar (hidden if blocked) */}
+      {isScholar && status !== "answered" && !blocked && (
         <div className="flex items-center justify-between gap-3 px-5 py-3 bg-yellow-50 border-b border-yellow-100">
           <p className="text-sm text-yellow-800">When you have fully answered, mark this as answered.</p>
           <button
@@ -191,26 +204,33 @@ export default function ChatWindow({
       {/* Error */}
       {error && <p className="px-5 pt-2 text-red-600 text-sm">{error}</p>}
 
-      {/* Message box */}
-      <form ref={formRef} onSubmit={handleSend} className="flex items-end gap-3 p-4 border-t border-gray-100">
-        <textarea
-          rows={1}
-          maxLength={3000}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a message..."
-          className="flex-1 resize-none rounded-2xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 max-h-40"
-        />
-        <button
-          type="submit"
-          disabled={sending || text.trim() === ""}
-          className="shrink-0 rounded-full bg-emerald-600 w-12 h-12 flex items-center justify-center text-white text-lg hover:bg-emerald-700 disabled:opacity-50"
-          aria-label="Send"
-        >
-          ➤
-        </button>
-      </form>
+      {/* Message box OR blocked notice */}
+      {blocked ? (
+        <div className="flex items-center gap-2 border-t border-red-100 bg-red-50 px-5 py-4 text-sm text-red-700">
+          <Ban className="h-4 w-4 shrink-0" />
+          {BLOCKED_TEXT}
+        </div>
+      ) : (
+        <form ref={formRef} onSubmit={handleSend} className="flex items-end gap-3 p-4 border-t border-gray-100">
+          <textarea
+            rows={1}
+            maxLength={3000}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message..."
+            className="flex-1 resize-none rounded-2xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 max-h-40"
+          />
+          <button
+            type="submit"
+            disabled={sending || text.trim() === ""}
+            className="shrink-0 rounded-full bg-emerald-600 w-12 h-12 flex items-center justify-center text-white text-lg hover:bg-emerald-700 disabled:opacity-50"
+            aria-label="Send"
+          >
+            ➤
+          </button>
+        </form>
+      )}
     </div>
   );
 }
