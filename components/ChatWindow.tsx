@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ban } from "lucide-react";
+import { Ban, Check, SendHorizontal } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatChatTime } from "@/lib/format";
 
@@ -165,33 +165,42 @@ export default function ChatWindow({
     <div className="flex flex-col">
       {/* Scholar action bar (hidden if blocked) */}
       {isScholar && status !== "answered" && !blocked && (
-        <div className="flex items-center justify-between gap-3 px-5 py-3 bg-yellow-50 border-b border-yellow-100">
-          <p className="text-sm text-yellow-800">When you have fully answered, mark this as answered.</p>
+        <div className="flex flex-col gap-3 border-b border-gold-300/40 bg-linear-to-r from-gold-300/20 to-amber-50 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-amber-900">
+            When you have fully answered, mark this as answered.
+          </p>
           <button
             onClick={markAnswered}
             disabled={marking}
-            className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white font-semibold hover:bg-emerald-700 disabled:opacity-50"
+            className="flex shrink-0 items-center justify-center gap-2 rounded-full bg-linear-to-r from-emerald-700 to-teal-600 px-5 py-2 text-sm font-semibold text-white shadow-md shadow-emerald-700/25 transition hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
           >
-            {marking ? "Saving..." : "✓ Mark as Answered"}
+            <Check className="h-4 w-4" />
+            {marking ? "Saving..." : "Mark as Answered"}
           </button>
         </div>
       )}
 
       {/* Messages */}
-      <div className="h-[60vh] overflow-y-auto bg-emerald-50/60 px-4 py-6 space-y-3">
+      <div className="h-[60vh] space-y-3 overflow-y-auto bg-linear-to-b from-emerald-50/80 to-white px-4 py-6">
         {messages.map((m) => {
           const mine = m.sender_id === currentUserId;
           return (
             <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-[80%] rounded-2xl px-4 py-2 shadow-sm ${
+                className={`max-w-[80%] rounded-2xl px-4 py-2.5 shadow-sm ${
                   mine
-                    ? "bg-emerald-600 text-white rounded-br-sm"
-                    : "bg-white text-gray-900 border border-gray-100 rounded-bl-sm"
+                    ? "rounded-br-sm bg-linear-to-br from-emerald-700 to-teal-600 text-white shadow-emerald-700/20"
+                    : "rounded-bl-sm border border-emerald-100 bg-white text-gray-900"
                 }`}
               >
-                <p className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed">{m.body}</p>
-                <p className={`text-[11px] mt-1 text-right ${mine ? "text-emerald-100" : "text-gray-400"}`}>
+                <p className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed">
+                  {m.body}
+                </p>
+                <p
+                  className={`mt-1 text-right text-[11px] ${
+                    mine ? "text-emerald-100" : "text-gray-400"
+                  }`}
+                >
                   {formatChatTime(m.created_at)}
                 </p>
               </div>
@@ -202,7 +211,7 @@ export default function ChatWindow({
       </div>
 
       {/* Error */}
-      {error && <p className="px-5 pt-2 text-red-600 text-sm">{error}</p>}
+      {error && <p className="px-5 pt-2 text-sm text-red-600">{error}</p>}
 
       {/* Message box OR blocked notice */}
       {blocked ? (
@@ -211,7 +220,11 @@ export default function ChatWindow({
           {BLOCKED_TEXT}
         </div>
       ) : (
-        <form ref={formRef} onSubmit={handleSend} className="flex items-end gap-3 p-4 border-t border-gray-100">
+        <form
+          ref={formRef}
+          onSubmit={handleSend}
+          className="flex items-end gap-3 border-t border-emerald-100 bg-white p-4"
+        >
           <textarea
             rows={1}
             maxLength={3000}
@@ -219,15 +232,15 @@ export default function ChatWindow({
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
-            className="flex-1 resize-none rounded-2xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 max-h-40"
+            className="max-h-40 flex-1 resize-none rounded-2xl border border-gray-200 bg-emerald-50/40 px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30"
           />
           <button
             type="submit"
             disabled={sending || text.trim() === ""}
-            className="shrink-0 rounded-full bg-emerald-600 w-12 h-12 flex items-center justify-center text-white text-lg hover:bg-emerald-700 disabled:opacity-50"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-emerald-700 to-teal-600 text-white shadow-lg shadow-emerald-700/30 transition hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-50 disabled:hover:translate-y-0"
             aria-label="Send"
           >
-            ➤
+            <SendHorizontal className="h-5 w-5" />
           </button>
         </form>
       )}

@@ -1,17 +1,10 @@
-import Link from "next/link";
 import Form from "next/form";
 import { connection } from "next/server";
+import { Search, SearchX } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-
-const SPECIALTIES = [
-  "Fiqh (Islamic Jurisprudence)",
-  "Hadith",
-  "Tafsir (Quran Interpretation)",
-  "Aqeedah (Beliefs)",
-  "Family & Marriage",
-  "Islamic Finance & Business",
-  "General Guidance",
-];
+import PageHeader from "@/components/PageHeader";
+import ScholarCard from "@/components/ScholarCard";
+import Reveal from "@/components/Reveal";
 
 export default async function ScholarsPage({
   searchParams,
@@ -20,155 +13,121 @@ export default async function ScholarsPage({
 }) {
   await connection();
 
-  // Read the search values from the URL (e.g. /scholars?q=faizan&specialty=Hadith)
-  const params = await searchParams;
-  const q = (params.q ?? "").trim();
-  const specialty = params.specialty ?? "";
+  const { q = "", specialty = "" } = await searchParams;
 
   const supabase = await createClient();
 
-  // 1) Get APPROVED scholars (and filter by specialty if one is chosen)
-  let query = supabase
+  const { data: scholars } = await supabase
     .from("scholar_profiles")
     .select("id, specialty, qualification, experience_years, bio")
-    .eq("status", "approved");
+    .eq("status", "approved")
+    .not("specialty", "is", null);
 
-  if (specialty) {
-    query = query.eq("specialty", specialty);
-  }
+  const all = scholars ?? [];
+  const ids = all.map((s) => s.id);
 
-  const { data: scholars } = await query;
+  const { data: profiles } = ids.length
+    ? await supabase.from("profiles").select("id, full_name").in("id", ids)
+    : { data: [] };
 
-  // 2) Get their names
-  const ids = scholars?.map((s) => s.id) ?? [];
-  const nameMap: Record<string, string> = {};
+  const names = new Map<string, string>();
+  (profiles ?? []).forEach((p) => names.set(p.id, p.full_name));
 
-  if (ids.length > 0) {
-    const { data: names } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", ids);
+  const specialties = [...new Set(all.map((s) => s.specialty as string))].sort();
 
-    names?.forEach((n) => {
-      nameMap[n.id] = n.full_name;
-    });
-  }
+  const term = q.trim().toLowerCase();
 
-  // 3) Apply the search text (name, specialty or bio)
-  const search = q.toLowerCase();
-  const results = (scholars ?? []).filter((s) => {
-    if (!search) return true;
-    const name = (nameMap[s.id] ?? "").toLowerCase();
-    const spec = (s.specialty ?? "").toLowerCase();
-    const bio = (s.bio ?? "").toLowerCase();
-    return name.includes(search) || spec.includes(search) || bio.includes(search);
+  const results = all.filter((s) => {
+    if (specialty && s.specialty !== specialty) return false;
+    if (!term) return true;
+    const haystack = [
+      names.get(s.id),
+      s.specialty,
+      s.qualification,
+      s.bio,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(term);
   });
 
-  const isFiltering = q !== "" || specialty !== "";
-
   return (
-    <main className="min-h-screen bg-emerald-50 px-4 py-12">
-      <div className="max-w-6xl mx-auto">
-        {/* Heading */}
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-emerald-800">Our Verified Scholars</h1>
-          <p className="text-gray-600 mt-3 max-w-2xl mx-auto">
-            Every scholar here has been verified by our team. Browse their profiles and ask your
-            questions with confidence.
-          </p>
-        </div>
-
-        {/* Search + filter */}
+    <>
+      <PageHeader
+        title="Find a Verified Scholar"
+        subtitle="Every scholar below has had their credentials reviewed by our admin team."
+      >
         <Form
           action="/scholars"
-          className="mt-10 bg-white rounded-2xl shadow p-4 flex flex-col md:flex-row gap-3"
+          className="mx-auto mt-8 flex max-w-3xl flex-col gap-3 sm:flex-row"
         >
-          <input
-            type="text"
-            name="q"
-            defaultValue={q}
-            placeholder="Search by name, specialty or topic..."
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          />
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-emerald-700" />
+            <input
+              name="q"
+              defaultValue={q}
+              placeholder="Search by name, topic or qualification"
+              className="w-full rounded-full bg-white py-3 pl-12 pr-4 text-gray-900 shadow-lg outline-none focus:ring-2 focus:ring-gold-400"
+            />
+          </div>
+
           <select
             name="specialty"
             defaultValue={specialty}
-            className="rounded-lg border border-gray-300 px-4 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="rounded-full bg-white px-5 py-3 text-gray-900 shadow-lg outline-none focus:ring-2 focus:ring-gold-400"
           >
             <option value="">All specialties</option>
-            {SPECIALTIES.map((sp) => (
+            {specialties.map((sp) => (
               <option key={sp} value={sp}>
                 {sp}
               </option>
             ))}
           </select>
+
           <button
             type="submit"
-            className="rounded-lg bg-emerald-600 px-6 py-2 text-white font-semibold hover:bg-emerald-700"
+            className="rounded-full bg-gold-400 px-8 py-3 font-semibold text-emerald-950 shadow-lg shadow-gold-400/30 transition hover:-translate-y-0.5 hover:bg-gold-300"
           >
             Search
           </button>
-          {isFiltering && (
-            <Link
-              href="/scholars"
-              className="rounded-lg border border-gray-300 px-6 py-2 text-gray-700 font-medium text-center hover:bg-gray-50"
-            >
-              Clear
-            </Link>
-          )}
         </Form>
+      </PageHeader>
 
-        {/* Result count */}
-        <p className="mt-6 text-sm text-gray-600">
-          {results.length} {results.length === 1 ? "scholar" : "scholars"} found
-        </p>
+      <section className="bg-linear-to-b from-emerald-50/60 to-white py-14">
+        <div className="mx-auto max-w-6xl px-6">
+          <p className="mb-8 text-sm text-gray-500">
+            {results.length} {results.length === 1 ? "scholar" : "scholars"} found
+          </p>
 
-        {/* Empty states */}
-        {results.length === 0 && (
-          <div className="mt-6 bg-white rounded-2xl shadow p-10 text-center text-gray-500">
-            {isFiltering
-              ? "No scholars match your search. Try different words or clear the filter."
-              : "No verified scholars yet. Please check back soon."}
-          </div>
-        )}
-
-        {/* Scholar cards */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-          {results.map((s) => {
-            const name = nameMap[s.id] ?? "Scholar";
-            return (
-              <Link
-                key={s.id}
-                href={`/scholars/${s.id}`}
-                className="block bg-white rounded-2xl shadow p-6 hover:shadow-lg transition"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 shrink-0 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xl font-bold">
-                    {name.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-gray-900">{name}</h2>
-                    <p className="text-emerald-700 text-sm font-medium">{s.specialty}</p>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                  <span className="rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-emerald-800">
-                    ✓ Verified
-                  </span>
-                  <span className="rounded-full bg-gray-50 border border-gray-200 px-3 py-1 text-gray-700">
-                    {s.experience_years} years experience
-                  </span>
-                </div>
-
-                <p className="mt-4 text-sm text-gray-600 line-clamp-3">{s.bio}</p>
-
-                <p className="mt-4 text-emerald-700 font-semibold text-sm">View profile →</p>
-              </Link>
-            );
-          })}
+          {results.length === 0 ? (
+            <div className="mx-auto max-w-md rounded-3xl border border-emerald-100 bg-white p-10 text-center shadow-sm">
+              <SearchX className="mx-auto h-12 w-12 text-emerald-700" />
+              <h2 className="font-heading mt-4 text-2xl font-bold text-emerald-950">
+                No scholars found
+              </h2>
+              <p className="mt-2 text-gray-600">
+                Try a different name or topic, or clear the specialty filter.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              {results.map((s, i) => (
+                <Reveal key={s.id} delay={(i % 3) * 0.1}>
+                  <ScholarCard
+                    id={s.id}
+                    name={names.get(s.id) ?? "Scholar"}
+                    specialty={s.specialty}
+                    qualification={s.qualification}
+                    experienceYears={s.experience_years}
+                    bio={s.bio}
+                  />
+                </Reveal>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
-    </main>
+      </section>
+    </>
   );
 }

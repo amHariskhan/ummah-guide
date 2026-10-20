@@ -1,44 +1,69 @@
+import { Search, MessageSquarePlus, MessagesSquare } from "lucide-react";
+import Reveal from "./Reveal";
+
 const steps = [
   {
-    number: "1",
-    title: "Create an account",
-    description: "Sign up for free in less than a minute.",
+    icon: Search,
+    title: "Find a verified scholar",
+    text: "Browse scholars whose credentials were checked by our admin team. Filter by specialty to find the right person.",
   },
   {
-    number: "2",
-    title: "Choose a scholar",
-    description: "Browse verified Ulama and view their qualifications and expertise.",
-  },
-  {
-    number: "3",
+    icon: MessageSquarePlus,
     title: "Ask your question",
-    description: "Send your query privately and receive an authentic answer.",
+    text: "Write your daily-life question in your own words and send it directly to the scholar you trust.",
+  },
+  {
+    icon: MessagesSquare,
+    title: "Get a trusted answer",
+    text: "Chat privately, one-to-one, and receive guidance from a real scholar, not an AI or a random website.",
   },
 ];
 
 export default function HowItWorks() {
   return (
-    <section id="how-it-works" className="bg-white py-20">
-      <div className="mx-auto max-w-6xl px-6">
-        <h2 className="text-center text-3xl font-bold text-gray-900 md:text-4xl">
-          How It Works
-        </h2>
-        <p className="mt-4 text-center text-gray-600">
-          Getting authentic guidance is simple.
-        </p>
+    <section
+      id="how-it-works"
+      className="relative overflow-hidden bg-linear-to-b from-white via-emerald-50/60 to-white py-24"
+    >
+      <div
+        aria-hidden="true"
+        className="absolute left-1/2 top-0 h-64 w-150 -translate-x-1/2 rounded-full bg-emerald-200/40 blur-3xl"
+      />
 
-        <div className="mt-12 grid gap-8 md:grid-cols-3">
-          {steps.map((step) => (
-            <div
-              key={step.number}
-              className="rounded-2xl border border-emerald-100 bg-emerald-50 p-8 text-center"
-            >
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-700 text-xl font-bold text-white">
-                {step.number}
+      <div className="relative mx-auto max-w-6xl px-6">
+        <Reveal className="mx-auto max-w-2xl text-center">
+          <span className="text-sm font-semibold uppercase tracking-widest text-gold-500">
+            How it works
+          </span>
+          <h2 className="font-heading mt-3 text-3xl font-bold text-emerald-950 md:text-5xl">
+            Three simple steps to trusted guidance
+          </h2>
+          <p className="mt-4 text-gray-600">
+            No searching through endless results. Just ask and receive an answer
+            from someone qualified.
+          </p>
+        </Reveal>
+
+        <div className="mt-16 grid gap-8 md:grid-cols-3">
+          {steps.map((step, i) => (
+            <Reveal key={step.title} delay={i * 0.15}>
+              <div className="group relative h-full rounded-3xl border border-emerald-100 bg-white/80 p-8 shadow-sm backdrop-blur-md transition duration-300 hover:-translate-y-2 hover:border-emerald-300 hover:shadow-xl hover:shadow-emerald-900/10">
+                <span className="absolute right-6 top-4 font-heading text-6xl font-bold text-emerald-100 transition-colors group-hover:text-gold-300/60">
+                  {i + 1}
+                </span>
+
+                <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-linear-to-br from-emerald-700 to-teal-600 text-white shadow-lg shadow-emerald-700/30">
+                  <step.icon className="h-7 w-7" />
+                </div>
+
+                <h3 className="relative mt-6 text-xl font-semibold text-emerald-950">
+                  {step.title}
+                </h3>
+                <p className="relative mt-3 leading-relaxed text-gray-600">
+                  {step.text}
+                </p>
               </div>
-              <h3 className="mt-6 text-xl font-semibold text-gray-900">{step.title}</h3>
-              <p className="mt-3 text-gray-600">{step.description}</p>
-            </div>
+            </Reveal>
           ))}
         </div>
       </div>

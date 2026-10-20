@@ -18,3 +18,24 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+@theme inline {
+  --font-heading: var(--font-playfair);
+
+  --color-gold-300: #e6c978;
+  --color-gold-400: #d4af37;
+  --color-gold-500: #b8962e;
+}
+html {
+  scroll-behavior: smooth;
+}
+
+::selection {
+  background: #d4af37;
+  color: #022c22;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

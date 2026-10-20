@@ -1,11 +1,24 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
+import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { formatChatTime } from "@/lib/format";
+import ChatWindow from "@/components/ChatWindow";
 
-export default async function ChatsPage() {
+export default async function ChatPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   await connection();
+
+  const { id } = await params;
+  const questionId = Number(id);
+
+  // The id must be a number (questions.id is bigint)
+  if (!Number.isInteger(questionId)) {
+    notFound();
+  }
 
   const supabase = await createClient();
 
@@ -17,120 +30,91 @@ export default async function ChatsPage() {
     redirect("/login");
   }
 
-  // All conversations where I am the asker OR the scholar, newest first
-  const { data: conversations } = await supabase
+  // Load the conversation
+  const { data: question } = await supabase
     .from("questions")
-    .select("id, title, status, user_id, scholar_id, last_message_at, last_message_preview, last_sender_id")
-    .or(`user_id.eq.${user.id},scholar_id.eq.${user.id}`)
-    .order("last_message_at", { ascending: false });
+    .select("id, title, status, user_id, scholar_id")
+    .eq("id", questionId)
+    .maybeSingle();
 
-  const list = conversations ?? [];
-
-  // Unread count per conversation
-  const { data: unreadRows } = await supabase.rpc("my_unread_counts");
-  const unreadMap: Record<number, number> = {};
-  (unreadRows ?? []).forEach((r: { question_id: number; unread: number }) => {
-    unreadMap[r.question_id] = r.unread;
-  });
-
-  // Who is the OTHER person in each chat?
-  const otherIds = Array.from(
-    new Set(list.map((c) => (c.user_id === user.id ? c.scholar_id : c.user_id)))
-  );
-
-  const nameMap: Record<string, string> = {};
-
-  if (otherIds.length > 0) {
-    const { data: names } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", otherIds);
-
-    names?.forEach((n) => {
-      nameMap[n.id] = n.full_name;
-    });
+  if (!question) {
+    notFound();
   }
 
+  // Only the asker and the scholar can open this chat
+  const isScholar = question.scholar_id === user.id;
+  const isAsker = question.user_id === user.id;
+
+  if (!isScholar && !isAsker) {
+    notFound();
+  }
+
+  // The other person's name
+  const otherId = isScholar ? question.user_id : question.scholar_id;
+  const { data: other } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", otherId)
+    .maybeSingle();
+
+  const otherName = other?.full_name ?? "User";
+
+  const { data: myProfile } = await supabase
+    .from("profiles")
+    .select("is_blocked")
+    .eq("id", user.id)
+    .single();
+
+  // Opening the chat = I have read it
+  await supabase.rpc("mark_conversation_read", { qid: questionId });
+
+  // All messages, oldest first
+  const { data: messages } = await supabase
+    .from("messages")
+    .select("id, sender_id, body, created_at")
+    .eq("question_id", questionId)
+    .order("created_at", { ascending: true });
+
   return (
-    <main className="min-h-screen bg-emerald-50 px-4 py-12">
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-3xl font-bold text-emerald-800">Messages</h1>
-        <p className="text-gray-600 mt-2">Your private conversations.</p>
+    <main className="min-h-[calc(100vh-4.5rem)] bg-linear-to-b from-emerald-100/70 via-emerald-50 to-white px-4 py-8">
+      <div className="mx-auto max-w-3xl">
+        <Link
+          href="/chats"
+          className="inline-flex items-center gap-2 font-medium text-emerald-700 transition-colors hover:text-emerald-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          All messages
+        </Link>
 
-        <div className="mt-8 bg-white rounded-2xl shadow overflow-hidden">
-          {list.length === 0 && (
-            <div className="p-10 text-center text-gray-500">
-              No conversations yet.{" "}
-              <Link href="/scholars" className="text-emerald-700 font-semibold hover:underline">
-                Find a scholar
-              </Link>{" "}
-              to ask your first question.
+        <div className="mt-4 overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-xl shadow-emerald-900/10">
+          {/* Header */}
+          <div className="flex items-center gap-4 bg-linear-to-r from-emerald-950 via-emerald-900 to-teal-800 px-5 py-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-emerald-600 to-teal-500 text-lg font-bold text-white ring-2 ring-gold-400/70">
+              {otherName.charAt(0).toUpperCase()}
             </div>
-          )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold text-white">{otherName}</p>
+              <p className="truncate text-sm text-emerald-100/80">{question.title}</p>
+            </div>
+            <span
+              className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
+                question.status === "answered"
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-gold-300 text-emerald-950"
+              }`}
+            >
+              {question.status === "answered" ? "Answered" : "Open"}
+            </span>
+          </div>
 
-          {list.map((c) => {
-            const otherId = c.user_id === user.id ? c.scholar_id : c.user_id;
-            const otherName = nameMap[otherId] ?? "User";
-            const sentByMe = c.last_sender_id === user.id;
-            const unread = unreadMap[c.id] ?? 0;
-
-            return (
-              <Link
-                key={c.id}
-                href={`/chats/${c.id}`}
-                className="flex items-center gap-4 px-5 py-4 border-b border-gray-100 last:border-b-0 hover:bg-emerald-50 transition"
-              >
-                {/* Avatar */}
-                <div className="w-12 h-12 shrink-0 rounded-full bg-emerald-600 text-white flex items-center justify-center text-lg font-bold">
-                  {otherName.charAt(0).toUpperCase()}
-                </div>
-
-                {/* Text */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className={`truncate text-gray-900 ${unread > 0 ? "font-bold" : "font-semibold"}`}>
-                      {otherName}
-                    </p>
-                    <span
-                      className={`text-xs shrink-0 ${
-                        unread > 0 ? "text-emerald-600 font-semibold" : "text-gray-500"
-                      }`}
-                    >
-                      {formatChatTime(c.last_message_at)}
-                    </span>
-                  </div>
-
-                  <p className="text-sm font-medium text-emerald-800 truncate">{c.title}</p>
-
-                  <div className="flex items-center justify-between gap-3 mt-0.5">
-                    <p className={`text-sm truncate ${unread > 0 ? "text-gray-900 font-medium" : "text-gray-500"}`}>
-                      {sentByMe && "You: "}
-                      {c.last_message_preview}
-                    </p>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span
-                        className={`text-xs rounded-full px-2 py-0.5 ${
-                          c.status === "answered"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {c.status === "answered" ? "Answered" : "Open"}
-                      </span>
-
-                      {/* Unread badge */}
-                      {unread > 0 && (
-                        <span className="min-w-5 h-5 px-1.5 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">
-                          {unread > 99 ? "99+" : unread}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+          <ChatWindow
+            questionId={question.id}
+            currentUserId={user.id}
+            initialMessages={messages ?? []}
+            isScholar={isScholar}
+            status={question.status}
+            isBlocked={myProfile?.is_blocked ?? false}
+          />
         </div>
       </div>
     </main>

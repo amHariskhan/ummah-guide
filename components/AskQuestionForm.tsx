@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+
+const fieldClass =
+  "mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30";
 
 export default function AskQuestionForm({
   userId,
@@ -40,7 +44,12 @@ export default function AskQuestionForm({
 
     if (error) {
       setLoading(false);
-      setError(error.message);
+      // Friendly text only, never raw database errors
+      setError(
+        error.message.includes("Blocked users")
+          ? "Your account has been suspended by the admin, so you cannot ask new questions."
+          : "Your question could not be sent. Please try again."
+      );
       return;
     }
 
@@ -59,12 +68,14 @@ export default function AskQuestionForm({
           placeholder="e.g. Is it permissible to combine prayers while travelling?"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className={fieldClass}
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700">Your question in detail</label>
+        <label className="block text-sm font-medium text-gray-700">
+          Your question in detail
+        </label>
         <textarea
           required
           rows={7}
@@ -72,20 +83,25 @@ export default function AskQuestionForm({
           placeholder="Explain your situation clearly so the scholar can give you an accurate answer."
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className={fieldClass}
         />
-        <p className="text-xs text-gray-500 mt-1">{body.length} / 3000</p>
+        <p className="mt-1 text-right text-xs text-gray-500">{body.length} / 3000</p>
       </div>
 
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+      {error && (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {error}
+        </p>
+      )}
 
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-emerald-600 py-3 text-white font-semibold hover:bg-emerald-700 disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-full bg-linear-to-r from-emerald-700 to-teal-600 py-3 font-semibold text-white shadow-lg shadow-emerald-700/25 transition hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-50 disabled:hover:translate-y-0"
       >
+        <Send className="h-4 w-4" />
         {loading ? "Sending..." : "Send Question"}
       </button>
     </form>
   );
-}
+}   

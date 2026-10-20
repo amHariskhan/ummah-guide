@@ -2,6 +2,10 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import LogoutButton from "./LogoutButton";
+import MobileMenu from "./MobileMenu";
+
+const navLink =
+  "relative py-1 text-gray-700 transition-colors hover:text-emerald-800 after:absolute after:-bottom-0.5 after:left-0 after:h-0.5 after:w-0 after:rounded-full after:bg-gold-400 after:transition-all after:duration-300 hover:after:w-full";
 
 export default async function Navbar() {
   await connection();
@@ -37,35 +41,44 @@ export default async function Navbar() {
   }
 
   return (
-    <nav className="bg-white border-b border-emerald-100">
-      <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+    <nav className="sticky top-0 z-50 border-b border-emerald-100/70 bg-white/80 backdrop-blur-lg">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <span className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold">
+        <Link href="/" className="group flex items-center gap-2.5">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-linear-to-br from-emerald-700 to-teal-600 font-heading text-lg font-bold text-white shadow-md shadow-emerald-700/30 ring-2 ring-gold-400/70 transition-transform group-hover:scale-105">
             U
           </span>
-          <span className="text-xl font-bold text-emerald-800">Ummah Guide</span>
+          <span className="font-heading text-xl font-bold text-emerald-950">
+            Ummah Guide
+          </span>
         </Link>
 
-        {/* Middle links */}
-        <div className="hidden md:flex items-center gap-6 text-gray-700">
-          <Link href="/scholars" className="hover:text-emerald-700">Scholars</Link>
-          <Link href="/#how-it-works" className="hover:text-emerald-700">How It Works</Link>
-          <Link href="/about" className="hover:text-emerald-700">About</Link>
+        {/* Middle links (desktop) */}
+        <div className="hidden items-center gap-8 md:flex">
+          <Link href="/scholars" className={navLink}>Scholars</Link>
+          <Link href="/#how-it-works" className={navLink}>How It Works</Link>
+          <Link href="/about" className={navLink}>About</Link>
 
           {role === "admin" && (
-            <Link href="/admin" className="text-emerald-700 font-semibold">Admin</Link>
+            <Link href="/admin" className="font-semibold text-emerald-700 hover:text-emerald-900">
+              Admin
+            </Link>
           )}
 
           {role === "scholar" && (
-            <Link href="/scholars/profile" className="text-emerald-700 font-semibold">My Profile</Link>
+            <Link href="/scholars/profile" className="font-semibold text-emerald-700 hover:text-emerald-900">
+              My Profile
+            </Link>
           )}
 
           {(role === "user" || role === "scholar") && (
-            <Link href="/chats" className="flex items-center gap-2 text-emerald-700 font-semibold">
+            <Link
+              href="/chats"
+              className="flex items-center gap-2 font-semibold text-emerald-700 hover:text-emerald-900"
+            >
               Messages
               {totalUnread > 0 && (
-                <span className="min-w-5 h-5 px-1.5 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gold-400 px-1.5 text-xs font-bold text-emerald-950">
                   {totalUnread > 99 ? "99+" : totalUnread}
                 </span>
               )}
@@ -75,26 +88,38 @@ export default async function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-3">
-          {user ? (
-            <>
-              <span className="hidden sm:block text-gray-700">
-                Assalamu Alaikum, <span className="font-semibold">{fullName}</span>
-              </span>
-              <LogoutButton />
-            </>
-          ) : (
-            <>
-              <Link href="/login" className="text-gray-700 font-medium hover:text-emerald-700">
-                Login
-              </Link>
-              <Link
-                href="/signup"
-                className="rounded-full bg-emerald-600 px-4 py-2 text-white font-medium hover:bg-emerald-700"
-              >
-                Sign Up
-              </Link>
-            </>
-          )}
+          <div className="hidden items-center gap-3 md:flex">
+            {user ? (
+              <>
+                <span className="hidden text-gray-700 lg:block">
+                  Assalamu Alaikum,{" "}
+                  <span className="font-semibold text-emerald-900">{fullName}</span>
+                </span>
+                <LogoutButton />
+              </>
+            ) : (
+              <>
+                <Link href="/login" className="font-medium text-gray-700 transition-colors hover:text-emerald-700">
+                  Login
+                </Link>
+                <Link
+                  href="/signup"
+                  className="rounded-full bg-linear-to-r from-emerald-700 to-teal-600 px-5 py-2 font-medium text-white shadow-md shadow-emerald-700/25 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-emerald-700/30"
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
+          </div>
+
+          {/* Mobile menu (shown only on small screens) */}
+          <MobileMenu
+            role={role}
+            isLoggedIn={!!user}
+            fullName={fullName}
+            totalUnread={totalUnread}
+            logoutButton={<LogoutButton />}
+          />
         </div>
       </div>
     </nav>
