@@ -1,8 +1,10 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { formatChatTime } from "@/lib/format";
+import PageHeader from "@/components/PageHeader";
+import ConversationList, {
+  type ConversationItem,
+} from "@/components/ConversationList";
 
 export default async function ChatsPage() {
   await connection();
@@ -20,7 +22,9 @@ export default async function ChatsPage() {
   // All conversations where I am the asker OR the scholar, newest first
   const { data: conversations } = await supabase
     .from("questions")
-    .select("id, title, status, user_id, scholar_id, last_message_at, last_message_preview, last_sender_id")
+    .select(
+      "id, title, status, user_id, scholar_id, last_message_at, last_message_preview, last_sender_id"
+    )
     .or(`user_id.eq.${user.id},scholar_id.eq.${user.id}`)
     .order("last_message_at", { ascending: false });
 
@@ -51,88 +55,37 @@ export default async function ChatsPage() {
     });
   }
 
+  const items: ConversationItem[] = list.map((c) => {
+    const otherId = c.user_id === user.id ? c.scholar_id : c.user_id;
+    return {
+      id: c.id,
+      title: c.title,
+      status: c.status,
+      otherName: nameMap[otherId] ?? "User",
+      last_message_at: c.last_message_at,
+      last_message_preview: c.last_message_preview,
+      last_sender_id: c.last_sender_id,
+    };
+  });
+
+  // When the server data changes (e.g. after router.refresh), this key makes
+  // the list start fresh from the new data
+  const listKey = items.map((i) => `${i.id}:${i.last_message_at}`).join("|");
+
   return (
-    <main className="min-h-screen bg-emerald-50 px-4 py-12">
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-3xl font-bold text-emerald-800">Messages</h1>
-        <p className="text-gray-600 mt-2">Your private conversations.</p>
+    <>
+      <PageHeader title="Messages" subtitle="Your private conversations." />
 
-        <div className="mt-8 bg-white rounded-2xl shadow overflow-hidden">
-          {list.length === 0 && (
-            <div className="p-10 text-center text-gray-500">
-              No conversations yet.{" "}
-              <Link href="/scholars" className="text-emerald-700 font-semibold hover:underline">
-                Find a scholar
-              </Link>{" "}
-              to ask your first question.
-            </div>
-          )}
-
-          {list.map((c) => {
-            const otherId = c.user_id === user.id ? c.scholar_id : c.user_id;
-            const otherName = nameMap[otherId] ?? "User";
-            const sentByMe = c.last_sender_id === user.id;
-            const unread = unreadMap[c.id] ?? 0;
-
-            return (
-              <Link
-                key={c.id}
-                href={`/chats/${c.id}`}
-                className="flex items-center gap-4 px-5 py-4 border-b border-gray-100 last:border-b-0 hover:bg-emerald-50 transition"
-              >
-                {/* Avatar */}
-                <div className="w-12 h-12 shrink-0 rounded-full bg-emerald-600 text-white flex items-center justify-center text-lg font-bold">
-                  {otherName.charAt(0).toUpperCase()}
-                </div>
-
-                {/* Text */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className={`truncate text-gray-900 ${unread > 0 ? "font-bold" : "font-semibold"}`}>
-                      {otherName}
-                    </p>
-                    <span
-                      className={`text-xs shrink-0 ${
-                        unread > 0 ? "text-emerald-600 font-semibold" : "text-gray-500"
-                      }`}
-                    >
-                      {formatChatTime(c.last_message_at)}
-                    </span>
-                  </div>
-
-                  <p className="text-sm font-medium text-emerald-800 truncate">{c.title}</p>
-
-                  <div className="flex items-center justify-between gap-3 mt-0.5">
-                    <p className={`text-sm truncate ${unread > 0 ? "text-gray-900 font-medium" : "text-gray-500"}`}>
-                      {sentByMe && "You: "}
-                      {c.last_message_preview}
-                    </p>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span
-                        className={`text-xs rounded-full px-2 py-0.5 ${
-                          c.status === "answered"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {c.status === "answered" ? "Answered" : "Open"}
-                      </span>
-
-                      {/* Unread badge */}
-                      {unread > 0 && (
-                        <span className="min-w-5 h-5 px-1.5 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">
-                          {unread > 99 ? "99+" : unread}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+      <main className="bg-linear-to-b from-emerald-100/70 via-emerald-50 to-white px-4 py-10">
+        <div className="mx-auto max-w-3xl">
+          <ConversationList
+            key={listKey}
+            currentUserId={user.id}
+            initialItems={items}
+            initialUnread={unreadMap}
+          />
         </div>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }

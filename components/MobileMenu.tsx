@@ -4,12 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { Menu, X } from "lucide-react";
+import { UnreadBadge } from "./UnreadProvider";
 
 type Props = {
   role: string;
   isLoggedIn: boolean;
   fullName: string;
-  totalUnread: number;
   logoutButton: React.ReactNode;
 };
 
@@ -17,7 +17,6 @@ export default function MobileMenu({
   role,
   isLoggedIn,
   fullName,
-  totalUnread,
   logoutButton,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -84,11 +83,7 @@ export default function MobileMenu({
                 className={`${linkClass} flex items-center justify-between`}
               >
                 Messages
-                {totalUnread > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gold-400 px-1.5 text-xs font-bold text-emerald-950">
-                    {totalUnread > 99 ? "99+" : totalUnread}
-                  </span>
-                )}
+                <UnreadBadge />
               </Link>
             )}
 

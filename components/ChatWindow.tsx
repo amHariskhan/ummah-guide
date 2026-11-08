@@ -40,7 +40,8 @@ export default function ChatWindow({
   // Starts with what the server told us; becomes true if the database refuses a send
   const [blocked, setBlocked] = useState(isBlocked);
 
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const firstScroll = useRef(true);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Add a message only if we don't already have it (prevents duplicates)
@@ -78,7 +79,12 @@ export default function ChatWindow({
 
             // Message from the other person while I'm looking → mark as read
             if (msg.sender_id !== currentUserId) {
-              supabase.rpc("mark_conversation_read", { qid: questionId }).then(() => {});
+              supabase
+                .rpc("mark_conversation_read", { qid: questionId })
+                .then(() => {
+                  // Tell the navbar badge to re-check its count
+                  window.dispatchEvent(new Event("unread:refresh"));
+                });
             }
           }
         )
@@ -94,9 +100,16 @@ export default function ChatWindow({
     };
   }, [questionId, currentUserId]);
 
-  // ===== Auto-scroll to the newest message =====
+  // ===== Auto-scroll the MESSAGE BOX (not the whole page) to the newest message =====
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTo({
+      top: el.scrollHeight,
+      // Jump instantly when the chat first opens, glide for new messages
+      behavior: firstScroll.current ? "auto" : "smooth",
+    });
+    firstScroll.current = false;
   }, [messages]);
 
   // ===== Send a message =====
@@ -181,7 +194,10 @@ export default function ChatWindow({
       )}
 
       {/* Messages */}
-      <div className="h-[60vh] space-y-3 overflow-y-auto bg-linear-to-b from-emerald-50/80 to-white px-4 py-6">
+      <div
+        ref={listRef}
+        className="h-[60vh] space-y-3 overflow-y-auto bg-linear-to-b from-emerald-50/80 to-white px-4 py-6"
+      >
         {messages.map((m) => {
           const mine = m.sender_id === currentUserId;
           return (
@@ -207,7 +223,6 @@ export default function ChatWindow({
             </div>
           );
         })}
-        <div ref={bottomRef} />
       </div>
 
       {/* Error */}
